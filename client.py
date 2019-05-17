@@ -55,7 +55,7 @@ def process_permission_msg():
 	if nbr_acknowledgement == network_size:
 		first_req_in_queue = req_list.get()
 		if queue_name == first_req_in_queue.queue_name:
-			simulate_critcal_section()
+			enter_critical_section(first_req_in_queue)
 		else:
 			req_list.put(first_req_in_queue)
 
@@ -63,6 +63,15 @@ def simulate_critcal_section():
 	print('[critical_Secton]: made it to the critical section')
 	time.sleep(random.randint(5,10))
 
+def enter_critical_section(request):
+	global nbr_acknowledgement
+	nbr_acknowledgement = 0
+	simulate_critcal_section()
+	send_msg(RELEASE_MSG, queue_name, True)
+	process_next_requests_in_queue()
+
+def process_next_requests_in_queue():
+	print('processing next requests...')
 
 # callback function, called whenever a message is received
 def callback(ch, method, properties, body):
@@ -71,13 +80,13 @@ def callback(ch, method, properties, body):
 	sender_name = properties.reply_to
 	sender_timestamp = properties.timestamp
 	msg_type = body.decode('UTF-8')
-	print(f'[MSG] msg type: {msg_type}')
 
 	update_clock(sender_timestamp)
 	increment_clock()
-
 	if sender_name == queue_name:
 		return
+
+	print(f'[MSG] msg type: {msg_type}')
 
 	if msg_type == NETWORK_SIZE_REQ_MSG:
 		network_size += 1
@@ -90,6 +99,8 @@ def callback(ch, method, properties, body):
 		process_request_msg(properties)
 	elif msg_type == RESPONSE_MSG:
 		process_permission_msg()
+	elif msg_type == RELEASE_MSG:
+		process_next_requests_in_queue()
 		
 	else:
 		print(f"[error] msg type is unknown {msg_type}")
