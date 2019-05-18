@@ -71,7 +71,15 @@ def enter_critical_section(request):
 	process_next_requests_in_queue()
 
 def process_next_requests_in_queue():
-	print('processing next requests...')
+	if req_list.empty():
+		return
+	req = req_list.get()
+	if req.queue_name == queue_name and nbr_acknowledgement == network_size:
+		enter_critical_section(req)
+		return
+	if req.queue_name != queue_name:
+		send_msg(RESPONSE_MSG, queue_name, False)
+	req_list.put(req)
 
 # callback function, called whenever a message is received
 def callback(ch, method, properties, body):
